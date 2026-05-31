@@ -1,21 +1,41 @@
+# syntax=docker/dockerfile:1
 # SPDX-License-Identifier: GPL-3.0-or-later
+
+# ##CERTIFY_BUILDER_START##
+FROM ubuntu:24.04 AS certify
+RUN apt-get update -qq \
+    && apt-get install -y --no-install-recommends ca-certificates \
+    && update-ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+# ##CERTIFY_BUILDER_END##
+
 FROM golang:1.25-alpine AS builder
+
+ARG GOPROXY=https://proxy.repo.internal/go,direct
+ENV GOPROXY=${GOPROXY}
 
 WORKDIR /workspace
 
 COPY go.mod go.sum ./
-RUN go mod download
+RUN --mount=type=cache,target=/root/go/pkg/mod \
+    go mod download
 
 COPY cmd/      cmd/
 COPY internal/ internal/
 
-RUN CGO_ENABLED=0 GOOS=linux go build -a -o fusion-runner ./cmd/runner/
+RUN --mount=type=cache,target=/root/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    CGO_ENABLED=0 GOOS=linux go build -a -o fusion-runner ./cmd/runner/
 
 FROM python:3.12-slim
 
 RUN useradd -m -u 1000 runner \
     && mkdir -p /tmp/venv \
     && chown runner:runner /tmp/venv
+
+# ##CERTIFY_COPY_START##
+COPY --from=certify /etc/ssl/certs /etc/ssl/certs
+# ##CERTIFY_COPY_END##
 
 COPY --from=builder /workspace/fusion-runner /fusion-runner
 

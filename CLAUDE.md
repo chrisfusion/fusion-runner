@@ -27,6 +27,21 @@ Archives produced by fusion-forge have a top-level `venv/` prefix (entries are `
 ## Archive debugging
 Inspect archive structure: `tar -tzf <archive> | head -20` — check top-level layout when debugging extraction issues (`venv/bin/...` vs bare `bin/...`).
 
+## Dockerfile preparation
+Run `./prepare_Dockerfile.sh` after any Dockerfile change or when `enhance_docker_ssl` changes — it injects the certify SSL builder stage and the cert COPY into all `dockerfiles/*/Dockerfile` in-place.
+Creates `Dockerfile_bak` backup before modifying. Idempotent: safe to re-run.
+
+Placeholder comments in Dockerfiles (replaced by the script):
+  `# ##CERTIFY_BUILDER##` — replaced with the certify Ubuntu stage
+  `# ##CERTIFY_COPY##` — replaced with `COPY --from=certify /etc/ssl/certs /etc/ssl/certs`
+
+`enhance_docker_ssl` (NOT in git, place at project root): body of the certify stage — RUN instructions that curl corporate CA certs. When absent the script injects a minimal `update-ca-certificates` fallback.
+
+## Go module proxy & BuildKit cache
+All Dockerfiles use `# syntax=docker/dockerfile:1` (required for `--mount=type=cache`).
+`ARG GOPROXY=https://proxy.repo.internal/go,direct` is a mock placeholder — override at build time: `docker build --build-arg GOPROXY=https://real-proxy/go,direct ...`
+`go mod download` and `go build` both mount `/root/go/pkg/mod` as a BuildKit cache — module downloads persist across builds on the dev machine without entering image layers.
+
 ## WEAVE_* env vars
 All injected by fusion-flux from `metadata.yaml` — see `tmp_create_docker.md` for the full reference.
 `WEAVE_PORT` comes from `runner.port`; `ENTRYPOINT` comes from `runner.args.ENTRYPOINT`.
