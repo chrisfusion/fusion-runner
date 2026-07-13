@@ -1,0 +1,27 @@
+# Go build artifacts
+/cmd/**/runner
+/cmd/**/*.exe
+*.test
+*.out
+
+# Python (helpers/python)
+.venv/
+__pycache__/
+*.pyc
+*.egg-info/
+build/
+dist/
+
+# Editors / IDEs
+.vscode/
+.idea/
+*.iml
+.DS_Store
+*~
+*.swp
+*.swo
+.#*
+\#*#
+
+# Backups created by prepare_Dockerfile.sh
+Dockerfile_bak

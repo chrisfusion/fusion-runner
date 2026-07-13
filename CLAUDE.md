@@ -42,6 +42,11 @@ All Dockerfiles use `# syntax=docker/dockerfile:1` (required for `--mount=type=c
 `ARG GOPROXY=https://proxy.repo.internal/go,direct` is a mock placeholder — override at build time: `docker build --build-arg GOPROXY=https://real-proxy/go,direct ...`
 `go mod download` and `go build` both mount `/root/go/pkg/mod` as a BuildKit cache — module downloads persist across builds on the dev machine without entering image layers.
 
+## helpers/ (runtime helper libraries)
+Sibling subprojects, one per language, for code that runs *inside* step pods (as opposed to `cmd`/`internal`, which build the runner entrypoint binary itself). First: `helpers/python/` (pip-installable, package `fusion_runner_helpers`). Future: `helpers/java/`, `helpers/go/` — not yet implemented, but the directory layout anticipates them.
+`helpers/python/fusion_runner_helpers.auth.KeycloakAuth` — OAuth2 client-credentials token fetcher. Reads `CLIENT_ID`/`CLIENT_SECRET`/`TOKEN_URL` env vars (key names configurable via constructor args) from a Secret injected by fusion-flux's `WeaveChainSpec.authSecretRef` (see fusion-flux CLAUDE.md). No fusion-runner process-model change needed — `PythonRunner.Exec()` still `syscall.Exec`-replaces itself; the library does the OAuth exchange itself and caches/refreshes the token in-process on each `get_token()` call, so it works fine as a plain import even though the runner process becomes the Python process.
+Dev loop: `cd helpers/python && python3.12 -m venv .venv && .venv/bin/pip install -e . && .venv/bin/python -m unittest discover -s tests -v`. Distributed via `requirements.txt` (not baked into the base runner image), so step authors opt in per-artifact.
+
 ## WEAVE_* env vars
 All injected by fusion-flux from `metadata.yaml` — see `tmp_create_docker.md` for the full reference.
 `WEAVE_PORT` comes from `runner.port`; `ENTRYPOINT` comes from `runner.args.ENTRYPOINT`.
