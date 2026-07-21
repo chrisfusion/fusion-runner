@@ -14,6 +14,8 @@ func New(cfg Config) (Runner, error) {
 		return &PythonRunner{cfg: cfg}, nil
 	case "streamlit":
 		return &StreamlitRunner{PythonRunner: PythonRunner{cfg: cfg}}, nil
+	case "python-index":
+		return &IndexPythonRunner{PythonRunner: PythonRunner{cfg: cfg}}, nil
 	case "spark":
 		return &SparkRunner{cfg: cfg}, nil
 	case "quarkus":

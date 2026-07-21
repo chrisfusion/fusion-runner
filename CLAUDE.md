@@ -4,6 +4,9 @@
 Go binary (`cmd/runner`) that acts as the entrypoint for all runner container images in fusion-weave.
 Dispatches to a type-specific handler based on `WEAVE_RUNNER_TYPE` env var injected by fusion-flux.
 
+## Cross-repo context
+fusion-runner is the consumer end of an artifact pipeline: fusion-forge (builds venv-packs) → fusion-index (stores/serves them via REST) → fusion-flux (injects `WEAVE_*` env vars, optionally pre-downloads via its code-loader init container). Before building any feature that integrates with one of these, read its sibling CLAUDE.md (`../fusion-index`, `../fusion-flux`, `../fusion-forge`) — each is authoritative for its own REST API/CRD shapes.
+
 ## Build
 `go build ./...` — no external dependencies, go.sum is intentionally empty
 Docker images live in `dockerfiles/<type>/Dockerfile` (multi-stage: `golang:1.25-alpine` builder + runtime base)
@@ -16,6 +19,11 @@ Matches the pattern used by fusion-forge (`fusion-venv-builder:local`, `fusion-f
 ## Runner types
 Each type has its own file in `internal/runner/`. Add a new type: create `<type>.go`, implement `Runner` interface, add a case to `New()` in `runner.go`.
 `StreamlitRunner` embeds `PythonRunner` — call `r.PythonRunner.Setup()` first, then add framework-specific env vars.
+`IndexPythonRunner` (`index.go`) embeds `PythonRunner` too — resolves `WEAVE_ARTIFACT`/`WEAVE_TAG` via fusion-index REST (base URL from `INDEX_URL` env var), downloads every file for the matched version into `MountPath`, then delegates to `PythonRunner.Setup()`.
+
+## fusion-index REST response shapes
+Inconsistent across list endpoints — `GET /api/v1/artifacts?name=` is paginated (`{"items":[...]}`), but `GET .../versions` and `GET .../versions/{semver}/files` return bare JSON arrays. Verify against `fusion-index/internal/api/handlers/*.go` before assuming a shape.
+`VersionResponse.Version` is already a formatted `major.minor.patch` string and `FileResponse.DownloadURL` is already the ready-to-use relative download path — don't reconstruct either manually.
 
 ## Python venv-pack quirks
 `venv-pack` archives contain `bin/python3.X` as an absolute symlink to the build-host path (e.g. `/usr/bin/python3.12`).

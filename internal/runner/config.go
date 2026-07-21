@@ -14,6 +14,7 @@ type Config struct {
 	BuilderImage string
 	Maintainer   string
 	IngressPath  string
+	IndexURL     string
 }
 
 func LoadConfig() Config {
@@ -29,6 +30,7 @@ func LoadConfig() Config {
 		BuilderImage: os.Getenv("WEAVE_BUILDER_IMAGE"),
 		Maintainer:   os.Getenv("WEAVE_MAINTAINER"),
 		IngressPath:  os.Getenv("WEAVE_INGRESS_PATH_PREFIX"),
+		IndexURL:     os.Getenv("INDEX_URL"),
 	}
 }
 
