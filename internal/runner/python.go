@@ -2,6 +2,7 @@ package runner
 
 import (
 	"fmt"
+	"log/slog"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -26,7 +27,7 @@ func (r *PythonRunner) Setup() error {
 		return err
 	}
 
-	fmt.Printf("fusion-runner: extracting venv from %s...\n", filepath.Base(archive))
+	slog.Info("extracting venv", "archive", filepath.Base(archive))
 
 	if err := extractVenv(archive, venvDir); err != nil {
 		return fmt.Errorf("extract venv: %w", err)
@@ -41,6 +42,7 @@ func (r *PythonRunner) Setup() error {
 func (r *PythonRunner) Exec() error {
 	python := filepath.Join(venvDir, "bin", "python")
 	entrypoint := filepath.Join(r.cfg.MountPath, r.cfg.Entrypoint)
+	slog.Info("exec", "python", python, "entrypoint", entrypoint)
 	return syscall.Exec(python, []string{python, entrypoint}, os.Environ())
 }
 
@@ -72,7 +74,9 @@ func fixPythonSymlinks(venvDir string) error {
 		// Absolute target from the build host — repoint to the container's binary.
 		systemBin, err := exec.LookPath(e.Name())
 		if err != nil {
-			continue // no matching version in this container, skip
+			slog.Warn("no matching interpreter for venv symlink in this container, leaving it pointed at the build host path",
+				"symlink", e.Name(), "buildHostTarget", target)
+			continue
 		}
 
 		if err := os.Remove(linkPath); err != nil {
@@ -81,6 +85,7 @@ func fixPythonSymlinks(venvDir string) error {
 		if err := os.Symlink(systemBin, linkPath); err != nil {
 			return err
 		}
+		slog.Info("repointed venv symlink", "symlink", e.Name(), "from", target, "to", systemBin)
 	}
 	return nil
 }

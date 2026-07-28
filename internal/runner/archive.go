@@ -22,9 +22,27 @@ func findArchive(dir string) (string, error) {
 		return "", err
 	}
 	if len(matches) == 0 {
-		return "", fmt.Errorf("no .tar.gz archive found in %s", dir)
+		return "", fmt.Errorf("no .tar.gz archive found in %s (contents: %s)", dir, describeDir(dir))
 	}
 	return matches[0], nil
+}
+
+// describeDir lists the entries of dir for error messages, so a missing
+// archive can be diagnosed (empty mount? wrong file type? never mounted?)
+// without a separate shell into the container.
+func describeDir(dir string) string {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return fmt.Sprintf("<unreadable: %v>", err)
+	}
+	if len(entries) == 0 {
+		return "<empty>"
+	}
+	names := make([]string, len(entries))
+	for i, e := range entries {
+		names[i] = e.Name()
+	}
+	return strings.Join(names, ", ")
 }
 
 // extractVenv extracts a venv-pack archive to venvDir, handling both:
@@ -99,5 +117,8 @@ func extractTarGz(archive, dest string) error {
 	cmd := exec.Command("tar", "-xzf", archive, "-C", dest)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	return cmd.Run()
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("tar -xzf %s -C %s: %w", archive, dest, err)
+	}
+	return nil
 }

@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"log/slog"
 	"os"
 	"time"
 
@@ -18,22 +19,26 @@ const asciiArt = `
 
 func main() {
 	cfg := runner.LoadConfig()
+	slog.SetDefault(runner.NewLogger(cfg))
+
+	// Printed before dispatch so the provided metadata is always visible in
+	// the log, even when cfg.RunnerType itself is what's wrong.
+	printStartupBanner(cfg)
+	slog.Info("runner starting", "entrypoint", cfg.Entrypoint, "mountPath", cfg.MountPath, "port", cfg.Port)
 
 	r, err := runner.New(cfg)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "fusion-runner: %v\n", err)
+		slog.Error("unsupported runner type", "error", err)
 		os.Exit(1)
 	}
 
-	printStartupBanner(cfg)
-
 	if err := r.Setup(); err != nil {
-		fmt.Fprintf(os.Stderr, "fusion-runner: setup failed: %v\n", err)
+		slog.Error("setup failed", "error", err)
 		os.Exit(1)
 	}
 
 	if err := r.Exec(); err != nil {
-		fmt.Fprintf(os.Stderr, "fusion-runner: exec failed: %v\n", err)
+		slog.Error("exec failed", "error", err)
 		os.Exit(1)
 	}
 }

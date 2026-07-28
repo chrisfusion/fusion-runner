@@ -4,10 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 // IndexPythonRunner resolves an artifact name + tag (or literal semver) against
@@ -40,8 +43,8 @@ func (r *IndexPythonRunner) Setup() error {
 		return fmt.Errorf("resolve %s:%s: %w", r.cfg.Artifact, r.cfg.Tag, err)
 	}
 
-	fmt.Printf("fusion-runner: downloading %s:%s (resolved version %s, %d file(s)) from fusion-index...\n",
-		r.cfg.Artifact, r.cfg.Tag, version, len(files))
+	slog.Info("downloading artifact files from fusion-index",
+		"resolvedVersion", version, "fileCount", len(files))
 
 	if err := os.MkdirAll(r.cfg.MountPath, 0755); err != nil {
 		return fmt.Errorf("mkdir %s: %w", r.cfg.MountPath, err)
@@ -122,7 +125,29 @@ func resolveVersionFiles(ctx context.Context, indexURL string, artifactID int64,
 		return v.Version, files, nil
 	}
 
-	return "", nil, fmt.Errorf("no version or tag matching %q", ref)
+	return "", nil, fmt.Errorf("no version or tag matching %q (available: %s)", ref, describeVersions(versions))
+}
+
+// describeVersions renders the versions/tags fusion-index actually returned,
+// so a resolution failure shows what was available instead of just the ref
+// that didn't match anything.
+func describeVersions(versions []indexVersion) string {
+	if len(versions) == 0 {
+		return "<no versions registered for this artifact>"
+	}
+	parts := make([]string, len(versions))
+	for i, v := range versions {
+		tags := make([]string, len(v.Tags))
+		for j, t := range v.Tags {
+			tags[j] = t.Tag
+		}
+		if len(tags) == 0 {
+			parts[i] = v.Version
+		} else {
+			parts[i] = fmt.Sprintf("%s [%s]", v.Version, strings.Join(tags, ", "))
+		}
+	}
+	return strings.Join(parts, ", ")
 }
 
 func downloadIndexFile(ctx context.Context, indexURL, downloadURL, dest string) error {
@@ -137,7 +162,7 @@ func downloadIndexFile(ctx context.Context, indexURL, downloadURL, dest string) 
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("GET %s: status %d", downloadURL, resp.StatusCode)
+		return fmt.Errorf("GET %s: status %d: %s", downloadURL, resp.StatusCode, readBodySnippet(resp))
 	}
 
 	out, err := os.Create(dest)
@@ -162,10 +187,26 @@ func getJSON(ctx context.Context, u string, dst any) error {
 	defer resp.Body.Close()
 
 	if resp.StatusCode == http.StatusNotFound {
-		return fmt.Errorf("GET %s: 404 not found", u)
+		return fmt.Errorf("GET %s: 404 not found: %s", u, readBodySnippet(resp))
 	}
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("GET %s: status %d", u, resp.StatusCode)
+		return fmt.Errorf("GET %s: status %d: %s", u, resp.StatusCode, readBodySnippet(resp))
 	}
 	return json.NewDecoder(resp.Body).Decode(dst)
+}
+
+// readBodySnippet returns a short, single-line excerpt of a non-2xx response
+// body for error messages — fusion-index's error responses (validation
+// messages, stack traces) are otherwise discarded once resp.Body is closed.
+func readBodySnippet(resp *http.Response) string {
+	const maxLen = 500
+	body, err := io.ReadAll(io.LimitReader(resp.Body, maxLen))
+	if err != nil || len(body) == 0 {
+		return "<no response body>"
+	}
+	snippet := strings.TrimSpace(strings.ReplaceAll(string(body), "\n", " "))
+	if len(snippet) == maxLen {
+		snippet += "..."
+	}
+	return snippet
 }
