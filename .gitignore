@@ -25,3 +25,7 @@ dist/
 
 # Backups created by prepare_Dockerfile.sh
 Dockerfile_bak
+
+# Claude Code (local)
+.claude/
+.claude.local.md
