@@ -4,6 +4,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"strings"
 	"syscall"
 )
 
@@ -21,6 +22,15 @@ func (r *StreamlitRunner) Setup() error {
 	}
 	os.Setenv("STREAMLIT_SERVER_HEADLESS", "true")
 	os.Setenv("STREAMLIT_SERVER_ADDRESS", "0.0.0.0")
+
+	// WEAVE_INGRESS_PATH (from metadata.yaml's ingress.path) is a leading-slash
+	// path like "/showcase" or root "/". Streamlit's own baseUrlPath config takes
+	// a bare segment with no slashes, and must be unset (not "") for root — so
+	// only set it when there's an actual non-root segment.
+	if basePath := strings.Trim(r.cfg.IngressPath, "/"); basePath != "" {
+		slog.Info("setting STREAMLIT_SERVER_BASE_URL_PATH", "basePath", basePath)
+		os.Setenv("STREAMLIT_SERVER_BASE_URL_PATH", basePath)
+	}
 	return nil
 }
 

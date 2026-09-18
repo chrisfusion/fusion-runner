@@ -29,7 +29,7 @@ func LoadConfig() Config {
 		Entrypoint:   os.Getenv("ENTRYPOINT"),
 		BuilderImage: os.Getenv("WEAVE_BUILDER_IMAGE"),
 		Maintainer:   os.Getenv("WEAVE_MAINTAINER"),
-		IngressPath:  os.Getenv("WEAVE_INGRESS_PATH_PREFIX"),
+		IngressPath:  os.Getenv("WEAVE_INGRESS_PATH"),
 		IndexURL:     os.Getenv("INDEX_URL"),
 	}
 }
