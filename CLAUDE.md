@@ -20,6 +20,7 @@ Matches the pattern used by fusion-forge (`fusion-venv-builder:local`, `fusion-f
 Each type has its own file in `internal/runner/`. Add a new type: create `<type>.go`, implement `Runner` interface, add a case to `New()` in `runner.go`.
 `StreamlitRunner` embeds `PythonRunner` — call `r.PythonRunner.Setup()` first, then add framework-specific env vars.
 `IndexPythonRunner` (`index.go`) embeds `PythonRunner` too — resolves `WEAVE_ARTIFACT`/`WEAVE_TAG` via fusion-index REST (base URL from `INDEX_URL` env var), downloads every file for the matched version into `MountPath`, then delegates to `PythonRunner.Setup()`.
+A `Config` field populated from a `WEAVE_*` env var is not automatically used by anything — `IngressPath` (from `WEAVE_INGRESS_PATH`) sat unread by every runner type until fixed in `StreamlitRunner.Setup()` (sets `STREAMLIT_SERVER_BASE_URL_PATH`). When adding a new `Config` field, grep for its read site in the same change, not just its env var assignment in `config.go`.
 
 ## fusion-index REST response shapes
 Inconsistent across list endpoints — `GET /api/v1/artifacts?name=` is paginated (`{"items":[...]}`), but `GET .../versions` and `GET .../versions/{semver}/files` return bare JSON arrays. Verify against `fusion-index/internal/api/handlers/*.go` before assuming a shape.
