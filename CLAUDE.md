@@ -58,3 +58,7 @@ Dev loop: `cd helpers/python && python3.12 -m venv .venv && .venv/bin/pip instal
 All injected by fusion-flux from `metadata.yaml` — see `tmp_create_docker.md` for the full reference.
 `WEAVE_PORT` comes from `runner.port`; `ENTRYPOINT` comes from `runner.args.ENTRYPOINT`.
 Module path: `fusion-platform.io/fusion-runner` (matches fusion-flux convention, not github.com/... like fusion-bff).
+
+## Multi-tenancy / ownership
+
+Cross-project plan (owner groups, trusted headers `X-User-Groups` etc., migration, rollout): `../fusion-shared/docs/multi-tenancy.md` — read it before touching ownership, groups or the `X-User-*` headers.
