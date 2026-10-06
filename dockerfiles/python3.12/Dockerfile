@@ -11,21 +11,16 @@ RUN apt-get update -qq \
 
 FROM golang:1.25-alpine AS builder
 
-ARG GOPROXY=https://proxy.repo.internal/go,direct
-ENV GOPROXY=${GOPROXY}
-
 WORKDIR /workspace
 
+# No third-party dependencies (empty go.sum): nothing to download or vendor.
 COPY go.mod go.sum ./
-RUN --mount=type=cache,target=/root/go/pkg/mod \
-    go mod download
 
 COPY cmd/      cmd/
 COPY internal/ internal/
 
-RUN --mount=type=cache,target=/root/go/pkg/mod \
-    --mount=type=cache,target=/root/.cache/go-build \
-    CGO_ENABLED=0 GOOS=linux go build -a -o fusion-runner ./cmd/runner/
+RUN --mount=type=cache,target=/root/.cache/go-build \
+    GOFLAGS=-mod=readonly GOPROXY=off CGO_ENABLED=0 GOOS=linux go build -a -o fusion-runner ./cmd/runner/
 
 FROM python:3.12-slim
 

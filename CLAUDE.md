@@ -8,7 +8,7 @@ Dispatches to a type-specific handler based on `WEAVE_RUNNER_TYPE` env var injec
 fusion-runner is the consumer end of an artifact pipeline: fusion-forge (builds venv-packs) → fusion-index (stores/serves them via REST) → fusion-flux (injects `WEAVE_*` env vars, optionally pre-downloads via its code-loader init container). Before building any feature that integrates with one of these, read its sibling CLAUDE.md (`../fusion-index`, `../fusion-flux`, `../fusion-forge`) — each is authoritative for its own REST API/CRD shapes.
 
 ## Build
-`go build ./...` — no external dependencies, go.sum is intentionally empty
+`go build ./...` — no external dependencies, go.sum is intentionally empty, so there is nothing to vendor and the Dockerfile builds offline (no `go mod download`, `GOPROXY=off`, `GOFLAGS=-mod=readonly`; any future dependency makes that build fail loudly). **If a dependency is ever added, switch to the vendoring method in `docs/go-vendoring-blueprint.md`** (CI has no internet access). Remaining external inputs: Docker base images (`golang:1.25-alpine`, `python:3.12-slim`, `ubuntu:24.04` certify stage + its `apt-get`) — mirror or `docker save`/`docker load`. Verify with `docker build --network none`.
 Docker images live in `dockerfiles/<type>/Dockerfile` (multi-stage: `golang:1.25-alpine` builder + runtime base)
 Build into minikube directly: `eval $(minikube docker-env) && docker build -f dockerfiles/python3.12/Dockerfile -t fusion-runner-python312:local .` — no `minikube image load` needed; building inside the daemon makes the image immediately available.
 
@@ -46,10 +46,8 @@ Placeholder comments in Dockerfiles (replaced by the script):
 
 `enhance_docker_ssl` (NOT in git, place at project root): body of the certify stage — RUN instructions that curl corporate CA certs. When absent the script injects a minimal `update-ca-certificates` fallback.
 
-## Go module proxy & BuildKit cache
-All Dockerfiles use `# syntax=docker/dockerfile:1` (required for `--mount=type=cache`).
-`ARG GOPROXY=https://proxy.repo.internal/go,direct` is a mock placeholder — override at build time: `docker build --build-arg GOPROXY=https://real-proxy/go,direct ...`
-`go mod download` and `go build` both mount `/root/go/pkg/mod` as a BuildKit cache — module downloads persist across builds on the dev machine without entering image layers.
+## BuildKit cache
+All Dockerfiles use `# syntax=docker/dockerfile:1` (required for `--mount=type=cache`). `go build` mounts `/root/.cache/go-build` as a BuildKit cache. There is no Go module proxy or download step: the module has no dependencies (see Build).
 
 ## helpers/ (runtime helper libraries)
 Sibling subprojects, one per language, for code that runs *inside* step pods (as opposed to `cmd`/`internal`, which build the runner entrypoint binary itself). First: `helpers/python/` (pip-installable, package `fusion_runner_helpers`). Future: `helpers/java/`, `helpers/go/` — not yet implemented, but the directory layout anticipates them.
